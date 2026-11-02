@@ -1,5 +1,5 @@
 ﻿@page "/register"
-
+@rendermode InteractiveServer
 <!-- מעטפת ראשית המרכזת את טופס ההרשמה באמצע המסך עם התאמה ל-RTL -->
 <div class="container d-flex justify-content-center align-items-center" style="min-height: 85vh;" dir="rtl">
 
@@ -41,7 +41,14 @@
                 <label class="form-label text-secondary fw-semibold small">אימות סיסמה</label>
                 <input type="password" class="form-control bg-light py-2" placeholder="********" @bind="confirmPassword" />
             </div>
-
+            <!-- הצגת הודעת שגיאה אם קיימת -->
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2 small text-center" role="alert">
+                    @errorMessage
+                </div>
+            }
+         
             <!-- כפתור הרשמה למערכת בצבע ירוק ממותג המפעיל את פונקציית הלוגיקה -->
             <button type="button" class="btn w-100 py-2 fw-bold text-white mb-3 shadow-sm" style="background-color: #4A7C59;" @onclick="HandleRegister">
                 הירשם למערכת
@@ -59,16 +66,55 @@
 
 </div>
 
+@inject HttpClient Http
+@inject NavigationManager Navigation
 @code {
-    // הגדרת משתנים לשמירת נתוני הקלט של המשתמש בטופס (כולל אימות הסיסמה)
+    // משתנים השומרים את הנתונים שהמשתמש מקליד בשדות הטופס
     private string fullName = "";
     private string email = "";
     private string password = "";
     private string confirmPassword = "";
+    private string errorMessage = "";
 
-    // פונקציית לוגיקה שמטפלת בלחיצה על כפתור ההרשמה
-    private void HandleRegister()
+    // הפעולה שמופעלת בלחיצה על כפתור ההרשמה
+    private async Task HandleRegister()
     {
-        // כאן נחבר בהמשך את הלוגיקה לבדיקת התאמת הסיסמאות ויצירת משתמש חדש מול ה-API או מסד הנתונים
+        // 1. בדיקה מקומית: האם הסיסמה ואימות הסיסמה תואמים?
+        if (password != confirmPassword)
+        {
+            errorMessage = "הסיסמאות אינן תואמות.";
+            return;
+        }
+    
+        try
+        {
+            // התאמת שמות השדות בדיוק למה שמחלקת User וה-API מצפים לקבל
+            var userDto = new
+            {
+                Username = fullName,       // במקום FullName
+                Email = email,
+                PasswordHash = password    // במקום Password
+            };
+
+            // שליחת בקשת POST אל ה-API יחד עם הנתונים
+            var response = await Http.PostAsJsonAsync("api/users/register", userDto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // הצלחה - מעבר לדף ההתחברות
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"ההרשמה נכשלה: {errorContent}";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"אירעה שגיאה במהלך ההרשמה: {ex.Message}";
+            StateHasChanged();
+        }
     }
 }

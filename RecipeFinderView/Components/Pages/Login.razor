@@ -1,8 +1,7 @@
 ﻿@page "/login"
+@rendermode InteractiveServer
 @using RecipeFinderView.Components.Shared
-
 <div class="container d-flex justify-content-center align-items-center" style="min-height: 85vh;" dir="rtl">
-
     <div class="card bg-white shadow-lg p-5 rounded-brand border-0 text-end" style="max-width: 450px; width: 100%;">
 
         <div class="text-center mb-4">
@@ -14,15 +13,25 @@
         </div>
 
         <div>
+            <!-- שדה שם משתמש בלבד -->
             <div class="mb-3">
-                <label class="form-label text-secondary fw-semibold small">שם משתמש או אימייל</label>
-                <input type="text" class="form-control bg-light py-2" placeholder="name@example.com" @bind="username" />
+                <label class="form-label text-secondary fw-semibold small">שם משתמש</label>
+                <input type="text" class="form-control bg-light py-2" placeholder="הקלד את שם המשתמש שלך" @bind="username" />
             </div>
 
+            <!-- שדה סיסמה -->
             <div class="mb-4">
                 <label class="form-label text-secondary fw-semibold small">סיסמה</label>
                 <input type="password" class="form-control bg-light py-2" placeholder="********" @bind="password" />
             </div>
+
+            <!-- הצגת שגיאות במידה ויש בעיה בהתחברות -->
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger py-2 small text-center mb-3" role="alert">
+                    @errorMessage
+                </div>
+            }
 
             <button type="button" class="btn w-100 py-2 fw-bold text-white mb-3 shadow-sm" style="background-color: #4A7C59;" @onclick="HandleLogin">
                 התחבר למערכת
@@ -35,15 +44,47 @@
         </div>
 
     </div>
-
 </div>
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
 @code {
     private string username = "";
     private string password = "";
+    private string errorMessage = "";
 
-    private void HandleLogin()
+    // ** כאן מחליפים את הפונקציה הישנה בחדשה הזו **
+    private async Task HandleLogin()
     {
-        // כאן נחבר בהמשך את הלוגיקה ל-API או ל-DB
+        errorMessage = ""; // איפוס שגיאות קודמות
+        try
+        {
+            Console.WriteLine("מנסה להתחבר עבור המשתמש: " + username);
+
+            var loginDto = new
+            {
+                Username = username,
+                Password = password
+            };
+
+            var response = await Http.PostAsJsonAsync("api/users/login", loginDto);
+
+            Console.WriteLine("סטטוס התשובה מהשרת: " + response.StatusCode);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = "התחברות נכשלה. בדוק את שם המשתמש או הסיסמה שהזנת.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("שגיאה בתקשורת: " + ex.Message);
+            errorMessage = $"אירעה שגיאה בחיבור לשרת: {ex.Message}";
+        }
     }
 }

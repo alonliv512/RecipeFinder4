@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using Model;
+ 
 
 namespace DAL
 {
@@ -23,7 +24,8 @@ namespace DAL
                 reader["PasswordHash"].ToString(),
                 Convert.ToInt32(reader["RoleID"]),
                 reader["RoleName"].ToString(),
-                Convert.ToBoolean(reader["IsActive"])
+                Convert.ToBoolean(reader["IsActive"]),
+                reader["Email"] != DBNull.Value ? reader["Email"].ToString() : string.Empty // הוספת שדה האימייל
             );
         }
 
@@ -32,8 +34,8 @@ namespace DAL
             using var connection = new MySqlConnection(connectionString);
             await connection.OpenAsync();
 
-            string query = @"INSERT INTO Users (Username, PasswordHash, RoleID, IsActive) 
-                             VALUES (@Username, @PasswordHash, @RoleID, @IsActive);
+            string query = @"INSERT INTO Users (Username, PasswordHash, RoleID, IsActive, Email) 
+                             VALUES (@Username, @PasswordHash, @RoleID, @IsActive, @Email);
                              SELECT LAST_INSERT_ID();";
 
             using var command = new MySqlCommand(query, connection);
@@ -41,6 +43,7 @@ namespace DAL
             command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
             command.Parameters.AddWithValue("@RoleID", user.RoleID == 0 ? 2 : user.RoleID);
             command.Parameters.AddWithValue("@IsActive", user.IsActive);
+            command.Parameters.AddWithValue("@Email", user.Email ?? string.Empty);
 
             var id = await command.ExecuteScalarAsync();
             return Convert.ToInt32(id);
@@ -61,9 +64,15 @@ namespace DAL
 
         public async Task<bool> EmailExistsAsync(string email)
         {
-            // אם בעתיד תרצה להוסיף שדה אימייל בטבלה, אפשר לממש כאן. כרגע נחזיר false.
-            await Task.CompletedTask;
-            return false;
+            using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            string query = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
+            using var command = new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@Email", email);
+
+            long count = (long)await command.ExecuteScalarAsync();
+            return count > 0;
         }
 
         public async Task<User> CheckLoginAsync(string username, string passwordHash)
@@ -71,7 +80,7 @@ namespace DAL
             using var connection = new MySqlConnection(connectionString);
             await connection.OpenAsync();
 
-            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive 
+            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive, u.Email 
                              FROM Users u
                              JOIN Roles r ON u.RoleID = r.RoleID
                              WHERE u.Username = @Username AND u.PasswordHash = @PasswordHash AND u.IsActive = TRUE";
@@ -93,7 +102,7 @@ namespace DAL
             using var connection = new MySqlConnection(connectionString);
             await connection.OpenAsync();
 
-            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive 
+            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive, u.Email 
                              FROM Users u
                              JOIN Roles r ON u.RoleID = r.RoleID
                              WHERE u.UserID = @UserID";
@@ -115,7 +124,7 @@ namespace DAL
             using var connection = new MySqlConnection(connectionString);
             await connection.OpenAsync();
 
-            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive 
+            string query = @"SELECT u.UserID, u.Username, u.PasswordHash, u.RoleID, r.RoleName, u.IsActive, u.Email 
                              FROM Users u
                              JOIN Roles r ON u.RoleID = r.RoleID";
 
@@ -154,5 +163,6 @@ namespace DAL
 
             return await command.ExecuteNonQueryAsync();
         }
+      
     }
 }

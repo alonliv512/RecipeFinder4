@@ -68,5 +68,34 @@ namespace API.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-    }
+        // POST: api/users/login
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            try
+            {
+                // שימוש בפונקציה הקיימת שבודקת שם משתמש וסיסמה במסד הנתונים
+                var user = await _userDB.CheckLoginAsync(loginDto.Username, loginDto.Password);
+
+                if (user == null)
+                {
+                    return Unauthorized("שם משתמש או סיסמה שגויים.");
+                }
+
+                return Ok(new { Message = "התחברות בוצעה בהצלחה!", User = user });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+    }  
+}
+
+// מחלקת ה-DTO להתחברות
+public class LoginDto
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }
